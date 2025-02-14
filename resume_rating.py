@@ -1,8 +1,8 @@
 import pdfplumber
 import re
 from extract_skills import extract_skills
+from extract_contacts import extract_emails, extract_phone_numbers  # ✅ Import new functions
 
-# ✅ Define skill list to avoid NameError
 SKILLS_LIST = ["Python", "Java", "C++", "SQL", "Flask", "Django", "React", "Machine Learning", "Cloud Computing"]
 
 def extract_text_from_pdf(pdf_path):
@@ -16,21 +16,14 @@ def extract_text_from_pdf(pdf_path):
     return text.strip() if text else None
 
 def check_ats_friendly(text):
-    """
-    Checks if a resume is ATS-friendly based on key sections and formatting issues.
-    """
-    # ✅ Define standard ATS sections
+    """Checks if a resume is ATS-friendly based on key sections and formatting issues."""
     required_sections = ["education", "experience", "skills", "projects", "certifications"]
-
-    # ✅ Check if all required sections exist
     found_sections = [section for section in required_sections if section.lower() in text.lower()]
     missing_sections = [section for section in required_sections if section.lower() not in text.lower()]
 
-    # ✅ Check for non-ATS-friendly formatting (tables, images, special characters)
-    non_ats_patterns = [r"\[.*?\]", r"\{.*?\}", r"<.*?>"]  # Patterns indicating tables or non-text elements
+    non_ats_patterns = [r"\[.*?\]", r"\{.*?\}", r"<.*?>"]
     non_ats_issues = any(re.search(pattern, text) for pattern in non_ats_patterns)
 
-    # ✅ Generate ATS Score
     ats_score = (len(found_sections) / len(required_sections)) * 100
 
     return {
@@ -40,18 +33,17 @@ def check_ats_friendly(text):
     }
 
 def rate_resume(pdf_path):
-    """Rate the resume based on extracted skills and ATS compatibility."""
+    """Rate the resume based on extracted skills, ATS compatibility, and contact validation."""
     text = extract_text_from_pdf(pdf_path)
     if not text:
         return {"error": "Failed to extract text from the PDF."}
 
     extracted_skills = extract_skills(text)
 
-    # ✅ Ensure SKILLS_LIST is not empty
-    if not SKILLS_LIST:
-        return {"error": "Skill list is empty. Cannot rate resume."}
+    # ✅ Extract and validate emails & phone numbers
+    valid_emails, invalid_emails = extract_emails(text)
+    valid_phones, invalid_phones = extract_phone_numbers(text)
 
-    # ✅ Avoid division by zero
     score = (len(extracted_skills) / len(SKILLS_LIST)) * 100 if SKILLS_LIST else 0
     score = round(score, 2)
 
@@ -63,12 +55,15 @@ def rate_resume(pdf_path):
     if "SQL" not in extracted_skills:
         feedback.append("SQL is crucial for data-related jobs. Consider improving your SQL knowledge.")
 
-    # ✅ Run ATS compatibility check
     ats_result = check_ats_friendly(text)
 
     return {
         "score": score,
         "skills_detected": extracted_skills,
         "feedback": feedback,
-        "ATS Compatibility": ats_result
+        "ATS Compatibility": ats_result,
+        "emails": valid_emails,
+        "invalid_emails": invalid_emails,
+        "phone_numbers": valid_phones,
+        "invalid_phone_numbers": invalid_phones
     }

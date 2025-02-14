@@ -11,7 +11,9 @@ import uuid
 from resume_rating import rate_resume
 from extract_text import extract_text_from_pdf
 from extract_skills import extract_skills
+
 import requests
+from db_functions import store_score, get_past_scores
 
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
@@ -197,7 +199,7 @@ def validate_links(links):
 @app.route('/rate-resume', methods=['POST'])
 @jwt_required()
 def rate_resume_api():
-    """API endpoint to rate a resume with ATS compatibility check."""
+    """API endpoint to rate a resume with ATS compatibility and plagiarism check."""
     if 'resume' not in request.files:
         return jsonify({"error": "No resume file uploaded"}), 400
 
@@ -206,19 +208,18 @@ def rate_resume_api():
     if not resume.filename.endswith('.pdf'):
         return jsonify({"error": "Only PDF files are allowed"}), 400
 
-    user_id = get_jwt_identity()
-
-    # Generate a unique filename for storage
+    user_id = get_jwt_identity()  # Extract user_id from JWT token
     unique_filename = f"{user_id}_{uuid.uuid4().hex}.pdf"
     resume_path = os.path.join(UPLOAD_FOLDER, unique_filename)
     resume.save(resume_path)
 
-    # ✅ Call resume rating function (which now includes ATS check)
+
+    # ✅ Call resume rating function (which includes ATS check)
     rating = rate_resume(resume_path)
 
     return jsonify({
         "message": "Resume rated successfully!",
-        "rating": rating
+        "rating": rating,
     }), 200
 
 # Root route to check server status
